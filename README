@@ -1,2 +1,611 @@
-ssdfsdf
-edit from web
+* =============================================C++========================================================
+* C++
+** tools
+- vld, valgrind
+- gstack
+- gcore pid
+- pmap pid
+** basic
+*** byte alignment
+**** 不同CPU的对其规则可能不同
+- 单个字节(char)能对齐到任意地址
+- 2字节(short)以2字节边界对齐
+- 4字节(int, long)以4字节边界对齐
+- sample:
+struct Message
+{
+  short opcode;
+  char subfield;
+  char pad1;            // Pad to start the long word at a 4 byte boundary
+  long message_length;
+  char version;
+  char pad2;            // Pad to start a short at a 2 byte boundary
+  short destination_processor;
+  char pad3[4];         // Pad to align the complete structure to a 16 byte boundary
+};
+
+*** big endian
+**** how to see data in memory?
+- (1) 它的地址是多少?
+- (2) 它的字节在内存中是如何组织的?
+**** 比如一个int x, 地址为0x100, 它的值为0x1234567. 则它所占据的0x100, 0x101, 0x102, 0x103地址组织如下图:
+|               | 0x100 | 0x101 | 0x102 | 0x103 |
+|---------------+-------+-------+-------+-------|
+| Big Endian    |    01 |    23 |    45 |    67 |
+| Little Endian |    67 |    45 |    23 |    01 |
+* ACE
+** Thread
+**** Types of thread
+ |---------------------+------------------------------------------------------------------------------|
+ | Flags               | Description                                                                  |
+ |---------------------+------------------------------------------------------------------------------|
+ | THR_CANCEL_DISABLE  | Do not allow this thread to be canceled.                                     |
+ | THR_CANCEL_ENABLE   | Allow this thread to be canceled.                                            |
+ | THR_CANCEL_DEFERRED | Allow for deferred cancellation only.                                        |
+ | THR_BOUND           | Create a thread that is bound to a kernel-schedulable entity.                |
+ | THR_NEW_LWP         | Create a kernel-level thread.                                                |
+ | THR_DETACHED        | Create a detached thread.                                                    |
+ | THR_SUSPENDED       | Create the thread but keep the new thread in suspended state.                |
+ | THR_DAEMON          | Create a daemon thread.                                                      |
+ | THR_JOINABLE        | Allow the new thread to be joined with.                                      |
+ | THR_SCHED_FIFO      | Schedule the new thread using the FIFO policy, if available.                 |
+ | THR_SCHED_RR        | Schedule the new thread using a round-robin scheme, if available.            |
+ | THR_SCHED_DEFAULT   | Use whatever default scheduling scheme is available on the operating system. |
+ |---------------------+------------------------------------------------------------------------------|
+
+**** Safety
+
+***** ACE Synchronization Primitives
+| Primitive     | Description                                                                                             |
+|---------------+---------------------------------------------------------------------------------------------------------|
+| ACE_Condition | A condition variable; allows signaling other threads to indicate event occurrence                       |
+| ACE_Semaphore | A counting semaphore; can be used as a signaling mechanism and also for synchronization purposes        |
+| ACE_Barrier   | Blocks all threads of execution until they all reach the barrier line, after which all threads continue |
+| ACE_Event     | A simple synchronization object that is used to signal events to other threads                          |
+ 
+
+***** Protection Primitives in ACE
+
+****** protection types: 
+  ACE_Mutex
+	ACE_Thread_Mutex
+	ACE_Recursive_Thread_Mutex
+	ACE_RW_Mutex
+	ACE_RW_Thread_Mutex
+	ACE_Token
+	ACE_Atomic_Op
+	ACE_Guard
+	ACE_Read_Guard
+	ACE_Write_Guard
+
+****** Mutexes
+       1. acquire
+       2. release
+****** Guards
+1. acquire a specified lock when they are constructed
+2. release the lock when they are destroyed.
+3. guard macros:
+	- ACE_GUARD (LockType, GuardName, LockObject)
+	- ACE_WRITE_GUARD (LockType, GuardName, LockObject)
+	- ACE_READ_GUARD (LockType, GuardName, LockObject)
+
+****** ACE_Condition 
+       1. wait
+       2. signal
+
+**** ACE_Message_Queue
+**** ACE_Thread_Manager
+**** ACE_TSS Thread-Specific Storage
+- like ThreadLocal in java
+** Active Object Pattern
+**** 主动对象（基于ACE_Task）
+**** ACE_Activation_Queue
+**** 若干ACE_Method_Object（主动对象的每个方法都需要有一个方法对象）
+**** 若干ACE_Future对象（每个要返回结果的方法都需要这样一个对象）
+** Reactor //facade, bridge pattern
+*** class design
+**** ACE_WFMO_Reactor //default on win
+**** ACE_Select_Reactor used by esau, default on linux
+- By default, ACE_Select_Reactor implements its notification mechanism via an ACE_Pipe, which is a bidirectional IPC mechanism whose semantics.
+- ACE_Timer_Queue // based on heap
+  - ACE_Free_List //object pool
+  - ACE_Timer_Wheel_T:ACE_Timer_Queue_T //有内涵！
+    -  Timer Wheel is based on the timing  wheel implementation used in Adam M. Costello and George Varghese's paper "Redesigning the BSD Callout and Timer Facilities"  (http://dworkin.wustl.edu/~varghese/PAPERS/newbsd.ps.Z)
+*** Design Rules for Using the Reactor Effectively
+- [[http://www.redwiki.net/wiki/wiki.php/ACE%20Reactor%C0%C7%20%B5%F0%C0%DA%C0%CE%B0%FA%20%BF%EB%B5%B5][webpage]] 
+** ace debug support
+- cd app/framework/SharpFrame/3rdTools/ACE_wrappers/ace
+- SSL Problem
+  - GNUmakefile: remove SSL parts
+  - or install SSL lib
+- enable ace log
+  - #define ACE_NTRACE 0 in config.h.  
+- GDB:  value optimized out Problem
+  - find ACE_wrappers/include/makeinclude -name "*.GNU"|xargs sed -i "s/optimize ?= 1/optimize ?= 0/"
+** Thread and Lock
+- 共享数据一定要有锁保护
+  - 避免保护不完全
+    - 线程安全函数要返回拷贝值
+- 控制锁的粒度
+  - 读写锁的应用
+- 确保多线程下的执行顺序
+  - 原子操作的入口出口要通过锁来保护
+- 调试定位
+  - 多线程不可调试，不可必现，需要关键点日志排查
+    - 共享数据的操作
+    - 锁的申请和释放
+- 避免死锁
+  - 锁越少越好
+  - 嵌套函数时可用可重入的锁
+    - ACE_Token
+
+     
+*** MemoryPool
+* Boost
+* Codes
+*** std::string
+**** #include <boost/algorithm/string.hpp>
+**** read file into string
+void readFile(const string &file, string &mdxQuery) {
+  std::ifstream ifs(file.c_str());
+  mdxQuery.assign(std::istreambuf_iterator<char>(ifs),
+		  std::istreambuf_iterator<char>());
+}
+**** string split
+std::vector<std::string> strs;
+boost::split(strs, fileNames, boost::is_any_of(";"));
+*** thread
+**** blocking queue
+     1. ACE_TASK<ACE_MT_SYNCH>
+     2. boost::message_queue
+*** std::map
+**** pair<iterator,bool> insert ( const value_type& x );
+the insertion operation checks for each element inserted whether another element exists already in the container with the same key value, if so, the element is not inserted and its mapped value is not changed in any way.
+Return value
+The first version returns a pair, with its member pair::first set to an iterator pointing to either the newly inserted element or to the element that already had its same value in the map. The pair::second element in the pair is set to true if a new element was inserted or false if an element with the same value existed.
+*** cast
+**** dynamic_cast
+dynamic_cast can be used only with pointers and references to objects.
+**** const_cast
+This type of casting manipulates the constness of an object, either to be set or to be removed.
+**** static_cast
+static_cast can perform conversions between pointers to related classes, not only from the derived class to its base, but also from a base class to its derived. This ensures that at least the classes are compatible if the proper object is converted, but no safety check is performed during runtime to check if the object being converted is in fact a full object of the destination type. Therefore, it is up to the programmer to ensure that the conversion is safe. On the other side, the overhead of the type-safety checks of dynamic_cast is avoided.
+**** reinterpret_cast
+     reinterpret_cast converts any pointer type to any other pointer type, even of unrelated classes. 
+CBase b; CBase* pb;
+CDerived d; CDerived* pd;
+pb = dynamic_cast<CBase*>(&d);     // ok: derived-to-base
+pd = static_cast<CDerived*>(&b);
+pd = reinterpret_cast<CDerived*>(&b);
+b = static_cast<CBase>(d);
+//d = static_cast<CBase>(b);//wrong
+
+*** Virtual Inheritance
+C++使用虚拟继承（Virtual Inheritance），使得派生类如果继承基类多次，但只有一份基类的拷贝在派生类对象中。 
+多重继承构造执行顺序
+首先执行虚基类的构造函数，多个虚基类的构造函数按照被继承的顺序构造；
+执行基类的构造函数，多个基类的构造函数按照被继承的顺序构造；
+执行成员对象的构造函数，多个成员对象的构造函数按照申明的顺序构造；
+执行派生类自己的构造函数；
+析构以与构造相反的顺序执行；
+* tools
+** g++,gcc,as,ar,ld,yacc
+   1. gcc/g++ - GNU C compiler: gcc -o test -g test.c
+   2. ar - create, modify, and extract from archives
+      1. ar -cvq libctest.a ctest1.o ctest2.o
+   3. ld - The GNU Linker:
+      1. cc -o executable-name prog.c -L/path/to/library-directory -lctest 
+   4. ldd - print shared library dependencies
+   5. Dynamically Linked "Shared Object" Libraries: (.so)
+      1.   gcc -shared -Wl,-soname,libctest.so.1 -o libctest.so.1.0   *.o
+      2.   gcc -Wall -I/path/to/include-files -L/path/to/libraries prog.c -lctest -o prog
+   6. nm - The command "nm" lists symbols contained in the object file or shared library.
+   7. ranlib - generate index to archive 
+   8. ldconfig - configure dynamic linker run-time bindings
+      1.  /sbin/ldconfig -p |grep libGL
+
+** gdb
+*** precondition
+- g++ -g main.cpp
+*** text user interface
+1. gdb -tui --args /opt/eSAU/script/admin/sf_env --svcname eSAU --svcagent 127.0.0.1 --svcport 36578 --monitorip 127.0.0.1 --admport 36577 --svctype eSAU --svcpara backtrace=0 --svcpara independent=0 --svcpara logfile=
+2. gdb -tui --args /opt/esau/script/admin/sf_env --svcname eSAU --svcagent 127.0.0.1 --svcport 36578 --monitorip 127.0.0.1 --admport 36577 --svctype eSAU --svcpara backtrace=0 --svcpara independent=0 --svcpara logfile=
+3. gdb -tui --args /opt/esau/script/admin/sf_env --svcname Master --svcagent 10.148.63.171 --svcport 36597 --monitorip 10.148.63.171 --admport 36577 --svctype eSAUMaster --svcpara backtrace=0 --svcpara independent=0 --svcpara logfile=
+   
+* Archive							    :ARCHIVE:
+   
+***  exception
+    :PROPERTIES:
+    :ARCHIVE_TIME: 2012-01-03 星期二 09:53
+    :END:
+**** what could be throw and catch?
+     - int
+     - poniter
+     - class object
+     - enum
+**** when throw sth without catch? 
+     - terminate();
+**** rethrow
+     - throw;
+**** catch all
+     - catch(...) 当与其他catch子句一起，catchall必须是最后一个. otherwise, compile error.
+**** exception specification
+      - void run() throw (onlyThisException) 如果throw其他exception,则 unexpected();
+***** 函数指针
+      - void fun1(int,int) throw()
+      - void fun2(int,int) throw(class1,class2,class3)
+      - void (*pf) (int,int) throw(class1,class2) = fun1 //ok
+      - void (*pf) (int,int) throw(class1,class2) = fun2 //wrong!
+* =============================================Java=======================================================
+* Java
+** tools
+- jad
+- findbug, PMD, checkstyle, fortify, coverity
+- jRebel
+- JProbe, JProfile, JConsole
+** basic
+*** this & super: only one at a time; the first statement
+*** variable
+**** field
+***** static field
+***** non-static field
+***** has default value without init
+**** local variable
+***** can not be static
+***** must be init before use
+*** static  //类属性
+**** static class
+**** static method
+**** static field
+**** no static local variable
+*** final
+**** final class: can not be extended
+**** final method: can not be overrided
+**** final field: can not be set
+**** final local variable: can not be set
+*** override & overload
+**** override: method re-write in child class
+**** overload: args list must change
+*** equals & hashcode
+**** equal的objects ,其hashcode也相等。
+**** boolean equals(Object obj)
+***** instance of // base and child could be equal.
+***** this.getClass() == obj.getClass()//base and child are diff.
+*** clone
+**** implements Cloneable
+*** switch type
+**** byte, char, int , short, enum
+- 
+ 	int i=2;
+	switch(i){
+	    case 1:
+	System.out.println("================1");
+	    case 2:
+	System.out.println("================2");
+	    case 3:
+	System.out.println("================3");
+	    default:
+	System.out.println("================default");
+	}	
+- output
+================2
+================3
+================default
+*** immutable class: String, Integer
+**** should be final class
+**** all fields are final: can not be change
+**** all method can not change status. getXXX only return copy of XXX.
+*** violate
+- Volatile修饰的成员变量在每次被线程访问时，都强迫从共享内存中重读该成员变量的值。而且，当成员变量发生变化时，强迫线程将变化值回写到共享内存。这样在任何时刻，两个不同的线程总是看到某个成员变量的同一个值。
+Java语言规范中指出：为了获得最佳速度，允许线程保存共享成员变量的私有拷贝，而且只当线程进入或者离开同步代码块时才与共享成员变量的原始值对比。
+*** interface & abstract class
+**** interface
+***** field: public final
+***** method: public abstract
+*** constructor
+**** can throw Exception
+**** void type method can not return any types.
+**** initializer
+   - static block and fileds: init when class load the first time
+   - parent init
+     - field and block
+     - constructor
+   - class init
+     - field and block
+     - constructor
+** Thread
+*** ThreadLocal 线程局部变量
+- 每一个使用该变量的线程都提供一个变量值的副本. 
+*** Runnable & Thread
+- name
+- catch InterruptedException
+*** sleep vs wait
+- Thread.sleep 
+  - 该线程不丢失任何监视器的所属权。
+- Object.wait
+  - 当前的线程必须拥有此对象监视器。该线程发布对此监视器的所有权并等待，直到其他线程通过调用 notify 方法，或 notifyAll 方法通知在此对象的监视器上等待的线程醒来。然后该线程将等到重新获得对监视器的所有权后才能继续执行。
+
+
+*** synchronized
+**** on static & non-static
+**** on method & code block
+** GC
+*** params
+- -Xms<size>
+设置虚拟机可用内存堆的初始大小，缺省单位为字节，该大小为1024的整数倍并且要大于1MB
+- -Xmx<size>
+设置虚拟机内存堆的最大可用大小，缺省单位为字节。该值必须为1024整数倍，并且要大于2MB。可用k(K)或m(M)为单位来设置较大的内存数。缺省堆最大值为64MB。
+- -Xss<size>
+设置线程栈的大小，缺省单位为字节。与-Xmx类似，也可用K或M来设置较大的值。通常操作系统分配给线程栈的缺省大小为1MB。
+- 
+*** heap
+- young
+  - Eden
+  - Survivor
+- Tenured
+- Perm
+*** System.gc() same with Runtime.gc()
+*** void finalize()
+** inner class
+* Web
+*** doGet vs doPost
+*** servlet
+*** forward vs redirect
+* Transaction
+1) ACID 
+   - Atomic
+     - All or nothing. If a transaction is interrupted, all previous steps within that transaction are undone.
+   - Consistent
+     - The state of objects and/or the state of tables within a database move from one consistent state to another consistent state.
+   - Isolated
+     - What happens within one transaction should not affect or be visible within another transaction.
+   - Durable
+     - The effects of a transaction are persistent.
+*** Local transactions
+   - begin > commit|rollback
+*** Distributed transactions
+- 2PC two-phase commit protocol
+  1) Commit request phase or voting phase
+     * The coordinator sends a query to commit message to all cohorts and waits until it has received a reply from all cohorts.
+     * The cohorts execute the transaction up to the point where they will be asked to commit. They each write an entry to their undo log and an entry to their redo log.
+     * Each cohort replies with an agreement message (cohort votes Yes to commit), if the cohort's actions succeeded, or an abort message (cohort votes No, not to commit), if the cohort experiences a failure that will make it impossible to commit.
+  2) Commit phase or Completion phase
+     1. Success
+	      - If the coordinator received an agreement message from all cohorts during the commit-request phase:
+		- The coordinator sends a commit message to all the cohorts.
+		- Each cohort completes the operation, and releases all the locks and resources held during the transaction.
+		- Each cohort sends an acknowledgment to the coordinator.
+		- The coordinator completes the transaction when all acknowledgments have been received.
+
+     2. Failure
+	      - If any cohort votes No during the commit-request phase (or the coordinator's timeout expires):
+		- The coordinator sends a rollback message to all the cohorts.
+		- Each cohort undoes the transaction using the undo log, and releases the resources and locks held during the transaction.
+		- Each cohort sends an acknowledgement to the coordinator.
+		- The coordinator undoes the transaction when all acknowledgements have been received.
+
+- 3PC three-phase commit protocol non-blocking.
+  1) Coordinator
+     1. The coordinator receives a transaction request. If there is a failure at this point, the coordinator aborts the transaction (i.e. upon recovery, it will consider the transaction aborted). Otherwise, the coordinator sends a canCommit? message to the cohorts and moves to the waiting state.
+     2. If there is a failure, timeout, or if the coordinator receives a No message in the waiting state, the coordinator aborts the transaction and sends an abort message to all cohorts. Otherwise the coordinator will receive Yes messages from all cohorts within the time window, so it sends preCommit messages to all cohorts and moves to the prepared state.
+     3. If the coordinator succeeds in the prepared state, it will move to the commit state. However if the coordinator times out while waiting for an acknowledgement from a cohort, it will abort the transaction. In the case where all acknowledgements are received, the coordinator moves to the commit state as well.
+  2) Cohort
+     1. The cohort receives a canCommit? message from the coordinator. If the cohort agrees it sends a Yes message to the coordinator and moves to the prepared state. Otherwise it sends a No message and aborts. If there is a failure, it moves to the abort state.
+     2. In the prepared state, if the cohort receives an abort message from the coordinator, fails, or times out waiting for a commit, it aborts. If the cohort receives a preCommit message, it sends an ACK message back.
+
+*** Transaction Attributes Config
+   + TX_REQUIRED	Methods executed within a transaction. If client provides transaction, it is used; if not, new transaction generated. Commit at end of method. Default attribute set by WebSphere Studio. Well-suited for EJB Sessions.
+   + TX_MANDATORY	Client of this EJB must create a transaction in which this method operates, otherwise an error. Well-suited for EJB Entitys.
+   + TX_REQUIRES_NEW	Methods executed within a transaction. If client provides transaction, it is suspended. A new transaction is generated, regardless. Commit at end of method.
+   + TX_SUPPORTS	Transactions optional.
+   + TX_NOT_SUPPORTED	Transactions not supported; if provided, ignored.
+   + TX_BEAN_MANAGED	Code in the EJB responsible for explicit transaction control. Applicable in WebSphere to EJB Sessions only.
+     
+* Codes
+*** Date date = new Date();  
+        System.err.println(date.getMonth() + " " + date.getDate());  
+***  double val = 11.5;  
+        System.err.println(Math.round(val));  //四舍五入 12
+        System.err.println(Math.floor(val));  //11.0
+        System.err.println(Math.ceil(val));   //12.0
+*** 编译时和运行时不同
+public class Test extends Base {  
+  
+    public static void main(String[] args) //throws Exception 
+    {  
+        Base b = new Test();  
+        b.method();  
+          
+        Test t = new Test();  
+        t.method();  
+    }  
+  
+    @Override  
+    public void method() {  
+        System.err.println("test");  
+    }  
+      
+}  
+  
+class Base {  
+    public void method() throws InterruptedException {  
+        System.err.println("base");  
+    }  
+}  
+*** class name
+public class Test extends Base {  
+  
+    public static void main(String[] args) {  
+        new Test().method();  
+    }  
+  
+    public void method() {  
+        System.err.println(super.getClass().getName());   //Test
+        System.err.println(this.getClass().getSuperclass().getName());  //Base
+    }  
+      
+}  
+  
+class Base {  
+}  
+*** string compare
+        final String str00 = "ab"+"c";  
+        final String str0 = "abc";  
+        String str1 = new String("abc");  
+        String str2 = new String("abc");  
+        System.err.println(str1.equals(str2));  //t
+        System.err.println(str0 == (str00));  //t
+          
+        StringBuffer sb1 = new StringBuffer("abc");  
+        StringBuffer sb2 = new StringBuffer("abc");  
+        System.err.println(sb1.equals(sb2));  /f
+*** finally
+ public int method1() {  
+        int x = 1;  
+        try {  
+            return x;  //return 1
+        } finally {  
+            ++x;  
+        }  
+    }  
+      
+    public int method2() {  
+        int x = 1;  
+        try {  
+            return x;  
+        } finally {  
+            return ++x;  //return 2
+        }  
+    }  
+*** integer
+ Integer i1 = 127;  
+        Integer i2 = 127;  
+        System.err.println(i1 == i2);  //true
+          
+        i1 = 128;  
+        i2 = 128;  
+        System.err.println(i1 == i2);  //false
+- ref:
+    public static Integer valueOf(int i) {  
+        final int offset = 128;  
+        if (i >= -128 && i <= 127) { // must cache  
+            return IntegerCache.cache[i + offset];  
+        }  
+        return new Integer(i);  
+    }  
+  
+*** float
+	 System.err.println(0.10 == 0.1);  //t
+	 System.err.println(12.0 - 11.9 == 0.1);  //f
+	 System.err.println(12 - 11.9 == 0.1);  //f
+- if(Math.abs(sectionID - currentSectionID) < epsilon) ; //epsilon = 0.00000000001
+* =============================================others======================================================
+* Flex
+** swf file = flex compile(ActionScript+ MXML)
+** ActionScript = Flash Player API + (ECMAScript like syntax Spec + Java like byte Code)
+** BladeDS
+- call Java object by Action Message Format
+  - SOAP OR RESTFul need to marshal xml
+- log utils
+- Action Message Format
+  - Action Message Format (AMF) is a binary format used to serialize objects graphs such ActionScript objects and XML,
+  - or send messages between an Adobe Flash client and a remote service, usually a Flash Media Server or third party alternatives.
+- Real Time Messaging Protocol
+  - Real Time Messaging Protocol (RTMP) was initially a proprietary protocol developed by Macromedia for streaming audio,
+  - video and data over the Internet, between a Flash player and a server.
+
+* vim
+- [{, ]} go to bracket
+- Grep
+- svncommand
+- A
+- 
+* bash
+- select f in `find . -name "*.sh"`; do vim  $f; done;
+- jobs, fg, bg
+- vim ~/.bashrc
+  - export LC_ALL=zh_CN.GBK
+  - export LANG=zh_CN.GBK
+- rpm
+  - rpm -qa //find installed rpm
+  - which rpm included file?
+    linux-dg4z:/export # rpm -qf /usr/bin/emacs
+    emacs-x11-21.3-224.17
+  - To learn about a package before installing it, enter
+    - rpm -qip hotrod-1.0-1.i386.rpm
+  - To see what files a package contains, enter
+    - rpm -qlp hotrod-1.0-1.i386.rpm
+
+* Asynchronize IO
+- Forms
+    1.1 Process
+    1.2 Polling
+    1.3 Select(/poll) loops
+    1.4 Signals (interrupts)
+    1.5 Callback functions
+    1.6 Light-weight processes or threads
+    1.7 Completion queues/ports
+    1.8 Event flags
+
+* DB
+** how to get sql history?
+   - select LAST_ACTIVE_TIME, LAST_LOAD_TIME ,SQL_FULLTEXT from v$sql where SQL_FULLTEXT like '%1325347200000%' order by LAST_ACTIVE_TIME desc;
+** SQL
+*** sub select
+- 一个select...From...Where查询语句块可以嵌套在另一个select...From...Where查询块的Where子句
+中，称为嵌套查询。
+- sample: 
+select sno,sname from student
+where sno not in(Select distinct sno from sclass)
+*** having
+- 在 SQL 中增加 HAVING 子句原因是，WHERE 关键字无法与合计函数一起使用。
+- sample:
+SELECT Customer,SUM(OrderPrice) FROM Orders
+WHERE Customer='Bush' OR Customer='Adams'
+GROUP BY Customer
+HAVING SUM(OrderPrice)>1500
+*** oracle sql functions
+**** string functions
+- select instr('abc ab','ab') from dual;
+- select substr('abcd',3,4) from dual;
+- select replace('abc ab','ab','new') from dual;
+* Program Language Category
+** Main languages
+*** C/C++
+**** make
+*** Java
+**** ant
+**** maven
+*** C#
+*** Objective-C
+*** Delphi
+** Editor languages
+*** elisp
+*** vim
+** Script languages
+*** dos, powershell
+*** bash/sed/awk
+*** perl
+*** python
+*** ruby
+** DataBase languages
+*** PL/SQL
+*** stored procedure
+** XML-based languages
+*** Ant
+*** XPath
+*** XQuery
+*** XProc
+*** XSLT
+*** schema/DTD
+*** html
+**** jsp/asp
+**** php
+**** css
+**** javascript
+***** jQuery
+***** YUI
+***** Prototype
+
+* =============================================diary 2012=================================================
+*
