@@ -67,7 +67,7 @@ struct Message
 ***** Protection Primitives in ACE
 
 ****** protection types: 
-  ACE_Mutex
+	ACE_Mutex
 	ACE_Thread_Mutex
 	ACE_Recursive_Thread_Mutex
 	ACE_RW_Mutex
@@ -521,6 +521,8 @@ class Base {
 - A
 - 
 * bash
+- SR5S2:~ # echo $PS1
+  \h:~ #
 - select f in `find . -name "*.sh"`; do vim  $f; done;
 - jobs, fg, bg
 - vim ~/.bashrc
@@ -569,43 +571,4 @@ HAVING SUM(OrderPrice)>1500
 - select instr('abc ab','ab') from dual;
 - select substr('abcd',3,4) from dual;
 - select replace('abc ab','ab','new') from dual;
-* Program Language Category
-** Main languages
-*** C/C++
-**** make
-*** Java
-**** ant
-**** maven
-*** C#
-*** Objective-C
-*** Delphi
-** Editor languages
-*** elisp
-*** vim
-** Script languages
-*** dos, powershell
-*** bash/sed/awk
-*** perl
-*** python
-*** ruby
-** DataBase languages
-*** PL/SQL
-*** stored procedure
-** XML-based languages
-*** Ant
-*** XPath
-*** XQuery
-*** XProc
-*** XSLT
-*** schema/DTD
-*** html
-**** jsp/asp
-**** php
-**** css
-**** javascript
-***** jQuery
-***** YUI
-***** Prototype
-
-* =============================================diary 2012=================================================
 *
