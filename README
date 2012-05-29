@@ -1,4 +1,40 @@
+* Book & Web Resource
+** Mind
+- IBM Ponder
+  - http://domino.research.ibm.com/Comm/wwwr_ponder.nsf/Challenges/May2012.html
+- Code Kata
+  - http://codekata.pragprog.com/
+** Design [1/2]
+- [ ] Refactor: Improving the Design of Existing Code
+- [X] Design Pattern
+** Career [1/2]
+- [ ] Code Complete
+- [X] The Pragmatic Programmer
+** Algorithm [3/8]
+- [X] 程序设计导引及在线实践
+- [X] 编程珠玑
+- [X] 编程之美
+- [ ] 算法导论中文版
+- [ ] Introduction to Algorithms
+- [ ] The Art of Computer Programming - Donald Knuth
+- [ ] Algorithms 
+  - http://www.cs.berkeley.edu/~vazirani/algorithms.html
+- [ ] Algorithm Design 
+  - http://www.algorist.com/
 
+** C++ [2/6]
+- [ ] google C++ code style
+- [ ] C++编程规范101条规则、准则与最佳实践
+- [X] C++ primer
+- [X] effective C++ / more effective C++
+- [ ] Effective STL
+- [ ] inside the C++ object model
+** Java [3/5]
+- [X] Think in Java
+- [X] Effective Java
+- [X] Java核心技术卷I,II
+      
+ 
 * =============================================C++========================================================
 * C++
 ** tools
